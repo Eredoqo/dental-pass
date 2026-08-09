@@ -1,0 +1,20 @@
+{
+  "name": "@dental-passport/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "ts-node src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@dental-passport/db": "workspace:*",
+    "@dental-passport/shared": "workspace:*",
+    "pg-boss": "^10.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,29 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { AuditModule } from './audit/audit.module';
+import { AuthGuard } from './auth/auth.guard';
+import { AuthModule } from './auth/auth.module';
+import { ClinicsModule } from './clinics/clinics.module';
+import { HealthController } from './health.controller';
+import { MembersModule } from './members/members.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { UsersModule } from './users/users.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    AuditModule,
+    AuthModule,
+    UsersModule,
+    ClinicsModule,
+    MembersModule,
+  ],
+  controllers: [HealthController],
+  providers: [
+    // Layer 1 (authentication) is global; routes opt out with @Public().
+    { provide: APP_GUARD, useClass: AuthGuard },
+  ],
+})
+export class AppModule {}

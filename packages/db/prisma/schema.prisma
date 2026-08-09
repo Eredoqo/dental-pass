@@ -1,0 +1,409 @@
+// Dental Passport — full MVP schema (docs/03-stage-3-technical-architecture.md §3)
+// Structural changes require a DECISIONS.md entry.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- Enums ----------
+
+enum ClinicRole {
+  OWNER
+  ADMIN
+  DENTIST
+  ASSISTANT
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum Sex {
+  FEMALE
+  MALE
+  OTHER
+  UNDISCLOSED
+}
+
+enum DocumentCategory {
+  CLINICAL_REPORT
+  IMPLANT_DOCUMENT
+  XRAY_IMAGE
+  TREATMENT_PLAN
+  WARRANTY
+  INVOICE
+  OTHER
+}
+
+enum DocumentStatus {
+  UPLOADED
+  QUEUED
+  PROCESSING
+  REVIEW_REQUIRED
+  VERIFIED
+  FAILED
+  NO_EXTRACTION
+}
+
+enum TreatmentStatus {
+  DRAFT
+  VERIFIED
+}
+
+enum ToothScope {
+  SINGLE
+  MULTIPLE
+  WHOLE_MOUTH
+  NOT_APPLICABLE
+  UNKNOWN
+}
+
+enum PlanStatus {
+  DRAFT
+  PROPOSED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum WarrantyStatus {
+  ACTIVE
+  EXPIRED
+  VOID
+}
+
+enum ExtractionStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum ItemDecision {
+  PENDING
+  ACCEPTED
+  EDITED
+  REJECTED
+}
+
+enum FlagStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+// ---------- Identity ----------
+
+model User {
+  id        String   @id @db.Uuid // = Supabase auth.users.id
+  email     String   @unique
+  fullName  String
+  locale    String   @default("en")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient       Patient?
+  clinicMembers ClinicMember[]
+}
+
+model Patient {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @unique @db.Uuid
+  dateOfBirth        DateTime?
+  sex                Sex       @default(UNDISCLOSED)
+  countryOfResidence String? // ISO 3166-1 alpha-2
+  phone              String?
+  preferredLanguage  String?
+  medicalNotes       String? // free-text allergies/notes (D-017)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user        User                      @relation(fields: [userId], references: [id])
+  passport    DentalPassport?
+  connections ClinicPatientConnection[]
+}
+
+model DentalPassport {
+  id        String   @id @default(uuid()) @db.Uuid
+  patientId String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  treatments     Treatment[]
+  documents      Document[]
+  treatmentPlans TreatmentPlan[]
+  warranties     Warranty[]
+}
+
+// ---------- Clinic / tenancy ----------
+
+model Clinic {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  country        String // ISO 3166-1 alpha-2
+  city           String
+  address        String?
+  phone          String?
+  email          String?
+  website        String?
+  logoStorageKey String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  members     ClinicMember[]
+  connections ClinicPatientConnection[]
+}
+
+model ClinicMember {
+  id           String       @id @default(uuid()) @db.Uuid
+  clinicId     String       @db.Uuid
+  userId       String?      @db.Uuid // null until staff invite accepted
+  invitedEmail String?
+  roles        ClinicRole[] // multi-role: OWNER+DENTIST is common (D-023)
+  status       MemberStatus @default(INVITED)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@unique([clinicId, userId])
+}
+
+model ClinicPatientConnection {
+  id                  String           @id @default(uuid()) @db.Uuid
+  clinicId            String           @db.Uuid
+  patientId           String?          @db.Uuid // null until invitation accepted
+  invitedEmail        String
+  invitationTokenHash String? // hash only; raw token lives in the email link
+  invitationExpiresAt DateTime?
+  status              ConnectionStatus @default(PENDING)
+  createdByMemberId   String           @db.Uuid
+  acceptedAt          DateTime?
+  revokedAt           DateTime?
+  createdAt           DateTime         @default(now())
+
+  clinic  Clinic   @relation(fields: [clinicId], references: [id])
+  patient Patient? @relation(fields: [patientId], references: [id])
+
+  @@unique([clinicId, patientId])
+}
+
+// ---------- Clinical records ----------
+// Verified records are immutable (D-018). Corrections create a new row with
+// supersedesId -> previous version; history is never overwritten.
+
+model Treatment {
+  id                 String          @id @default(uuid()) @db.Uuid
+  passportId         String          @db.Uuid
+  clinicId           String          @db.Uuid // provenance (D2-005)
+  createdByMemberId  String          @db.Uuid
+  type               String
+  date               DateTime
+  notes              String?
+  status             TreatmentStatus @default(DRAFT)
+  verifiedByMemberId String?         @db.Uuid
+  verifiedAt         DateTime?
+  sourceDocumentId   String?         @db.Uuid
+  supersedesId       String?         @db.Uuid
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  passport   DentalPassport @relation(fields: [passportId], references: [id])
+  procedures Procedure[]
+
+  @@index([passportId, date])
+  @@index([clinicId])
+}
+
+model Procedure {
+  id          String     @id @default(uuid()) @db.Uuid
+  treatmentId String     @db.Uuid
+  type        String
+  toothScope  ToothScope @default(UNKNOWN)
+  teeth       Int[] // FDI numbers 11-48 (D-013)
+  notes       String?
+
+  treatment Treatment @relation(fields: [treatmentId], references: [id])
+  implant   Implant?
+}
+
+model Implant {
+  id            String    @id @default(uuid()) @db.Uuid
+  procedureId   String    @unique @db.Uuid
+  manufacturer  String?
+  system        String?
+  model         String?
+  diameterMm    Decimal?  @db.Decimal(4, 2)
+  lengthMm      Decimal?  @db.Decimal(4, 2)
+  lotNumber     String?
+  placementDate DateTime?
+  notes         String?
+  // All optional: never invent missing information (Workflow K)
+
+  procedure Procedure @relation(fields: [procedureId], references: [id])
+}
+
+model TreatmentPlan {
+  id                String     @id @default(uuid()) @db.Uuid
+  passportId        String     @db.Uuid
+  clinicId          String     @db.Uuid
+  createdByMemberId String     @db.Uuid
+  title             String
+  description       String?
+  status            PlanStatus @default(DRAFT)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  passport DentalPassport      @relation(fields: [passportId], references: [id])
+  items    TreatmentPlanItem[]
+}
+
+model TreatmentPlanItem {
+  id          String     @id @default(uuid()) @db.Uuid
+  planId      String     @db.Uuid
+  description String
+  toothScope  ToothScope @default(NOT_APPLICABLE)
+  teeth       Int[]
+  sortOrder   Int        @default(0)
+
+  plan TreatmentPlan @relation(fields: [planId], references: [id])
+}
+
+model Warranty {
+  id          String         @id @default(uuid()) @db.Uuid
+  passportId  String         @db.Uuid
+  clinicId    String         @db.Uuid
+  treatmentId String?        @db.Uuid
+  implantId   String?        @db.Uuid
+  provider    String
+  startDate   DateTime
+  endDate     DateTime?
+  terms       String?
+  documentId  String?        @db.Uuid
+  status      WarrantyStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+
+  passport DentalPassport @relation(fields: [passportId], references: [id])
+}
+
+model RecordFlag {
+  id                String     @id @default(uuid()) @db.Uuid
+  resourceType      String // "Treatment" | "Implant" | ...
+  resourceId        String     @db.Uuid
+  flaggedByClinicId String     @db.Uuid
+  flaggedByMemberId String     @db.Uuid
+  reason            String
+  status            FlagStatus @default(OPEN)
+  createdAt         DateTime   @default(now())
+}
+
+// ---------- Documents ----------
+
+model Document {
+  id                 String           @id @default(uuid()) @db.Uuid
+  passportId         String           @db.Uuid
+  clinicId           String           @db.Uuid // uploads are clinic-only in MVP (D-024)
+  uploadedByMemberId String           @db.Uuid
+  category           DocumentCategory
+  originalFilename   String
+  mimeType           String
+  sizeBytes          Int
+  status             DocumentStatus   @default(UPLOADED)
+  currentVersion     Int              @default(1)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  passport    DentalPassport    @relation(fields: [passportId], references: [id])
+  versions    DocumentVersion[]
+  extractions AIExtraction[]
+
+  @@index([clinicId, status])
+  @@index([passportId])
+}
+
+model DocumentVersion {
+  id                 String   @id @default(uuid()) @db.Uuid
+  documentId         String   @db.Uuid
+  versionNumber      Int
+  storageKey         String // no patient names in paths (Stage 3 §7)
+  mimeType           String
+  sizeBytes          Int
+  uploadedByMemberId String   @db.Uuid
+  createdAt          DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id])
+
+  @@unique([documentId, versionNumber])
+}
+
+// ---------- AI ----------
+
+model AIExtraction {
+  id                 String           @id @default(uuid()) @db.Uuid
+  documentId         String           @db.Uuid
+  documentVersionId  String           @db.Uuid
+  status             ExtractionStatus @default(PENDING)
+  provider           String // "openai"
+  model              String // exact model id used
+  promptVersion      String // versioned prompts, always
+  rawOutput          Json?
+  error              String?
+  startedAt          DateTime?
+  finishedAt         DateTime?
+  reviewedByMemberId String?          @db.Uuid
+  reviewedAt         DateTime?
+  createdAt          DateTime         @default(now())
+
+  document Document           @relation(fields: [documentId], references: [id])
+  items    AIExtractionItem[]
+}
+
+model AIExtractionItem {
+  id                  String       @id @default(uuid()) @db.Uuid
+  extractionId        String       @db.Uuid
+  itemType            String // "treatment" | "procedure" | "implant" | "documentDate"
+  fieldPath           String // e.g. "treatments[0].teeth"
+  proposedValue       Json
+  confidence          Float?
+  decision            ItemDecision @default(PENDING)
+  finalValue          Json? // value after human edit
+  appliedResourceType String?
+  appliedResourceId   String?      @db.Uuid
+
+  extraction AIExtraction @relation(fields: [extractionId], references: [id])
+}
+
+// ---------- Audit ----------
+// Append-only. The application never updates or deletes rows here.
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorUserId   String?  @db.Uuid
+  actorMemberId String?  @db.Uuid
+  action        String // e.g. "document.upload", "treatment.verify"
+  resourceType  String
+  resourceId    String   @db.Uuid
+  clinicId      String?  @db.Uuid
+  patientId     String?  @db.Uuid
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([clinicId, createdAt])
+}
