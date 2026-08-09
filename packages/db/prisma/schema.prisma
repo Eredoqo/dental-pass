@@ -3,6 +3,8 @@
 
 generator client {
   provider = "prisma-client-js"
+  // native = local dev; the other two cover Docker on ARM (local) and x86 (cloud)
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {

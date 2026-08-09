@@ -1,0 +1,19 @@
+# Runs the backend (API + AI worker) as containers against hosted Supabase.
+# Usage:  docker compose up --build
+# Env comes from the repo-root .env (gitignored). The database is NOT in
+# Docker — it stays on Supabase (Stage 3 §9).
+
+services:
+  api:
+    build: .
+    env_file: .env
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  worker:
+    build: .
+    env_file: .env
+    environment:
+      WORKER: "1"
+    restart: unless-stopped
