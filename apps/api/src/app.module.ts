@@ -12,7 +12,8 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // Load the repo-root .env so `pnpm dev:api` works from apps/api without sourcing env vars.
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
     PrismaModule,
     AuditModule,
     AuthModule,
