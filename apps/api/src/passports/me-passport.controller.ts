@@ -2,6 +2,7 @@ import { Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { User } from '@dental-passport/db';
 import { CurrentUser } from '../auth/current.decorators';
 import { ConnectionsService } from '../connections/connections.service';
+import { WarrantiesService } from '../warranties/warranties.service';
 import { PassportsService } from './passports.service';
 
 /** Patient portal endpoints — all scoped to the authenticated user's own passport. */
@@ -10,7 +11,20 @@ export class MePassportController {
   constructor(
     private readonly passportsService: PassportsService,
     private readonly connectionsService: ConnectionsService,
+    private readonly warrantiesService: WarrantiesService,
   ) {}
+
+  @Get('passport/implants')
+  async implants(@CurrentUser() user: User) {
+    const { passport } = await this.passportsService.getPassportForUser(user.id);
+    return this.passportsService.implants(passport.id);
+  }
+
+  @Get('passport/warranties')
+  async warranties(@CurrentUser() user: User) {
+    const { passport } = await this.passportsService.getPassportForUser(user.id);
+    return this.warrantiesService.listForPassport(passport.id);
+  }
 
   @Get('passport')
   async overview(@CurrentUser() user: User) {

@@ -9,7 +9,11 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@dental-passport/shared": ["../../packages/shared/src"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../../packages/shared/src"]
 }

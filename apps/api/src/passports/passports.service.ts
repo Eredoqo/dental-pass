@@ -17,17 +17,27 @@ export class PassportsService {
     return { patient, passport: patient.passport };
   }
 
+  /** Ids of treatment versions replaced by a correction (D-018) — hidden from views. */
+  private async supersededIds(passportId: string): Promise<string[]> {
+    const successors = await this.prisma.treatment.findMany({
+      where: { passportId, supersedesId: { not: null } },
+      select: { supersedesId: true },
+    });
+    return successors.map((s) => s.supersedesId!);
+  }
+
   async overview(passportId: string) {
+    const superseded = await this.supersededIds(passportId);
+    const current: Prisma.TreatmentWhereInput = { passportId, status: 'VERIFIED', id: { notIn: superseded } };
+
     const [treatments, documents, warranties, implants] = await Promise.all([
-      this.prisma.treatment.count({ where: { passportId, status: 'VERIFIED' } }),
+      this.prisma.treatment.count({ where: current }),
       this.prisma.document.count({ where: { passportId } }),
       this.prisma.warranty.count({ where: { passportId } }),
-      this.prisma.implant.count({
-        where: { procedure: { treatment: { passportId, status: 'VERIFIED' } } },
-      }),
+      this.prisma.implant.count({ where: { procedure: { treatment: current } } }),
     ]);
     const lastTreatment = await this.prisma.treatment.findFirst({
-      where: { passportId, status: 'VERIFIED' },
+      where: current,
       orderBy: { date: 'desc' },
       select: { id: true, type: true, date: true },
     });
@@ -42,9 +52,10 @@ export class PassportsService {
     const statusFilter: Prisma.TreatmentWhereInput = opts.includeDraftsOfClinicId
       ? { OR: [{ status: 'VERIFIED' }, { status: 'DRAFT', clinicId: opts.includeDraftsOfClinicId }] }
       : { status: 'VERIFIED' };
+    const superseded = await this.supersededIds(passportId);
 
     const treatments = await this.prisma.treatment.findMany({
-      where: { passportId, ...statusFilter },
+      where: { passportId, id: { notIn: superseded }, ...statusFilter },
       include: { procedures: { include: { implant: true } } },
       orderBy: { date: 'desc' },
     });
@@ -65,6 +76,7 @@ export class PassportsService {
       clinic: clinicById.get(t.clinicId) ?? null, // provenance (D2-005)
       verifiedAt: t.verifiedAt,
       sourceDocumentId: t.sourceDocumentId,
+      supersedesId: t.supersedesId, // set when this record is a correction
       procedures: t.procedures.map((p) => ({
         id: p.id,
         type: p.type,
@@ -73,5 +85,24 @@ export class PassportsService {
         implant: p.implant,
       })),
     }));
+  }
+
+  /** Implants tab: verified, current-version implants with placement context. */
+  async implants(passportId: string) {
+    const superseded = await this.supersededIds(passportId);
+    return this.prisma.implant.findMany({
+      where: {
+        procedure: { treatment: { passportId, status: 'VERIFIED', id: { notIn: superseded } } },
+      },
+      include: {
+        procedure: {
+          select: {
+            teeth: true,
+            toothScope: true,
+            treatment: { select: { id: true, date: true, clinicId: true } },
+          },
+        },
+      },
+    });
   }
 }

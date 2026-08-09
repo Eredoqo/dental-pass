@@ -10,6 +10,9 @@ import { EmailModule } from './email/email.module';
 import { HealthController } from './health.controller';
 import { MembersModule } from './members/members.module';
 import { PassportsModule } from './passports/passports.module';
+import { PlansModule } from './plans/plans.module';
+import { TreatmentsModule } from './treatments/treatments.module';
+import { WarrantiesModule } from './warranties/warranties.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 
@@ -26,6 +29,9 @@ import { UsersModule } from './users/users.module';
     EmailModule,
     ConnectionsModule,
     PassportsModule,
+    TreatmentsModule,
+    PlansModule,
+    WarrantiesModule,
   ],
   controllers: [HealthController],
   providers: [
