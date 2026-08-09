@@ -1,0 +1,17 @@
+{
+  "name": "dental-passport",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:api": "pnpm --filter @dental-passport/api dev",
+    "dev:worker": "pnpm --filter @dental-passport/worker dev",
+    "dev:web": "pnpm --filter @dental-passport/web dev",
+    "db:generate": "pnpm --filter @dental-passport/db generate",
+    "db:migrate": "pnpm --filter @dental-passport/db migrate:dev",
+    "test": "pnpm -r test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
