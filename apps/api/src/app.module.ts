@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { AiModule } from './ai/ai.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module';
     TreatmentsModule,
     PlansModule,
     WarrantiesModule,
+    AiModule,
   ],
   controllers: [HealthController],
   providers: [

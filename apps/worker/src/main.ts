@@ -1,24 +1,17 @@
 import PgBoss from 'pg-boss';
 import { PrismaClient } from '@dental-passport/db';
+import { buildProvider, DocumentExtractJob, processDocument } from './pipeline';
 
 export const DOCUMENT_EXTRACT_QUEUE = 'document.extract';
 
-export interface DocumentExtractJob {
-  documentId: string;
-  documentVersionId: string;
-}
-
 /**
- * AI worker process (Stage 3 §6). Consumes pg-boss jobs from the same
- * Postgres the API writes to — job creation is transactional with the
- * document row. Retries 3x with exponential backoff, then FAILED.
- *
- * Phase 5 will plug the AiProvider pipeline into handleExtract(); the
- * queue topology and state transitions are wired now so the API side
- * can be built against them.
+ * AI worker (Stage 3 §6). Consumes pg-boss jobs from the same Postgres the
+ * API writes to. Retries 3x with exponential backoff; the pipeline leaves the
+ * document FAILED after the last failed attempt (retriable via the API).
  */
 async function main() {
   const prisma = new PrismaClient();
+  const provider = buildProvider();
   const boss = new PgBoss({ connectionString: process.env.DATABASE_URL! });
 
   boss.on('error', (error) => console.error('[pg-boss]', error));
@@ -31,17 +24,8 @@ async function main() {
   });
 
   await boss.work<DocumentExtractJob>(DOCUMENT_EXTRACT_QUEUE, async ([job]) => {
-    const { documentId } = job.data;
-    console.log(`[worker] extract job ${job.id} for document ${documentId}`);
-
-    await prisma.document.update({
-      where: { id: documentId },
-      data: { status: 'PROCESSING' },
-    });
-
-    // Phase 5: download file -> AiProvider.extract -> validate against
-    // schema v1 -> create AIExtraction + items -> REVIEW_REQUIRED.
-    throw new Error('AI pipeline not implemented yet (Stage 4 Phase 5)');
+    console.log(`[worker] job ${job.id} → document ${job.data.documentId}`);
+    await processDocument(prisma, provider, job.data);
   });
 
   console.log('[worker] listening for jobs');

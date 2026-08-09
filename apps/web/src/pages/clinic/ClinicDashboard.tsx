@@ -59,9 +59,8 @@ export function ClinicDashboard() {
       <h1>{me.memberships[0].clinic.name}</h1>
       <p>Roles: {me.memberships[0].roles.join(', ')}</p>
       <p>
-        <a href="/c/patients">Patients</a>
+        <a href="/c/patients">Patients</a> · <a href="/c/review">AI review queue</a>
       </p>
-      <p>(Documents and AI review arrive in Phases 4–5.)</p>
     </main>
   );
 }

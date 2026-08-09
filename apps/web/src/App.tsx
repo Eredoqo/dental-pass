@@ -9,6 +9,7 @@ import { PassportPage } from './pages/patient/PassportPage';
 import { PatientDashboard } from './pages/patient/PatientDashboard';
 import { ClinicDashboard } from './pages/clinic/ClinicDashboard';
 import { PatientsPage } from './pages/clinic/PatientsPage';
+import { ReviewPage } from './pages/clinic/ReviewPage';
 
 /** Resolves the acting clinic (first membership) for clinic-portal pages. */
 function WithClinic({ children }: { children: (clinicId: string) => JSX.Element }) {
@@ -36,6 +37,7 @@ export default function App() {
       <Route path="/p/clinics" element={<ClinicsPage />} />
       <Route path="/c" element={<ClinicDashboard />} />
       <Route path="/c/patients" element={<WithClinic>{(id) => <PatientsPage clinicId={id} />}</WithClinic>} />
+      <Route path="/c/review" element={<WithClinic>{(id) => <ReviewPage clinicId={id} />}</WithClinic>} />
     </Routes>
   );
 }
