@@ -6,7 +6,10 @@ import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { ClinicsModule } from './clinics/clinics.module';
 import { ConnectionsModule } from './connections/connections.module';
+import { DocumentsModule } from './documents/documents.module';
 import { EmailModule } from './email/email.module';
+import { JobsModule } from './jobs/jobs.module';
+import { StorageModule } from './storage/storage.module';
 import { HealthController } from './health.controller';
 import { MembersModule } from './members/members.module';
 import { PassportsModule } from './passports/passports.module';
@@ -27,7 +30,10 @@ import { UsersModule } from './users/users.module';
     ClinicsModule,
     MembersModule,
     EmailModule,
+    StorageModule,
+    JobsModule,
     ConnectionsModule,
+    DocumentsModule,
     PassportsModule,
     TreatmentsModule,
     PlansModule,

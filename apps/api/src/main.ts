@@ -1,6 +1,8 @@
+import multipart from '@fastify/multipart';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { MAX_UPLOAD_BYTES } from '@dental-passport/shared';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -8,6 +10,10 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter({ bodyLimit: 26 * 1024 * 1024 }),
   );
+
+  await app.register(multipart as never, {
+    limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+  });
 
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(

@@ -7,6 +7,13 @@ interface Overview {
   lastTreatment: { type: string; date: string } | null;
 }
 
+interface Doc {
+  id: string;
+  originalFilename: string;
+  category: string;
+  status: string;
+}
+
 interface TimelineItem {
   id: string;
   date: string;
@@ -21,16 +28,31 @@ interface TimelineItem {
 export function PassportPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [timeline, setTimeline] = useState<TimelineItem[] | null>(null);
+  const [docs, setDocs] = useState<Doc[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api<Overview>('/me/passport'), api<TimelineItem[]>('/me/passport/timeline')])
-      .then(([o, t]) => {
+    Promise.all([
+      api<Overview>('/me/passport'),
+      api<TimelineItem[]>('/me/passport/timeline'),
+      api<Doc[]>('/me/passport/documents'),
+    ])
+      .then(([o, t, d]) => {
         setOverview(o);
         setTimeline(t);
+        setDocs(d);
       })
       .catch((e) => setError(e.message));
   }, []);
+
+  async function openDocument(id: string) {
+    try {
+      const { url } = await api<{ url: string }>(`/me/passport/documents/${id}/download`);
+      window.open(url, '_blank');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   if (error) return <main style={{ fontFamily: 'system-ui', padding: 24 }}>Error: {error}</main>;
   if (!overview || !timeline) return <main style={{ fontFamily: 'system-ui', padding: 24 }}>Loading…</main>;
@@ -63,6 +85,15 @@ export function PassportPage() {
             </div>
           ))}
           {item.notes && <div style={{ fontSize: 14, fontStyle: 'italic' }}>{item.notes}</div>}
+        </div>
+      ))}
+
+      <h2>Documents</h2>
+      {docs.length === 0 && <p>No documents yet.</p>}
+      {docs.map((d) => (
+        <div key={d.id} style={{ fontSize: 14, marginBottom: 6 }}>
+          {d.originalFilename} · {d.category.toLowerCase().replace(/_/g, ' ')}{' '}
+          <button onClick={() => openDocument(d.id)}>Open</button>
         </div>
       ))}
     </main>

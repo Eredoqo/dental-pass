@@ -1,7 +1,89 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { SUGGESTED_TREATMENT_TYPES } from '@dental-passport/shared';
-import { api } from '../../lib/api';
+import { DOCUMENT_CATEGORIES, SUGGESTED_TREATMENT_TYPES } from '@dental-passport/shared';
+import { api, apiUpload } from '../../lib/api';
+
+interface Doc {
+  id: string;
+  originalFilename: string;
+  category: string;
+  status: string;
+  createdAt: string;
+}
+
+/** Workflow F — document upload with manual category (D-025) + list/download/delete. */
+function DocumentsSection({ clinicId, patientId }: { clinicId: string; patientId: string }) {
+  const [docs, setDocs] = useState<Doc[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [category, setCategory] = useState<string>('CLINICAL_REPORT');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  function load() {
+    api<Doc[]>(`/patients/${patientId}/documents`, { clinicId }).then(setDocs).catch((e) => setError(e.message));
+  }
+  useEffect(load, [patientId]);
+
+  async function upload(event: FormEvent) {
+    event.preventDefault();
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiUpload(`/patients/${patientId}/documents`, file, { category }, clinicId);
+      setFile(null);
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function download(id: string) {
+    try {
+      const { url } = await api<{ url: string }>(`/patients/${patientId}/documents/${id}/download`, { clinicId });
+      window.open(url, '_blank');
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm('Delete this document?')) return;
+    try {
+      await api(`/patients/${patientId}/documents/${id}`, { method: 'DELETE', clinicId });
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <h3>Documents</h3>
+      <form onSubmit={upload} style={{ fontSize: 14 }}>
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />{' '}
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          {DOCUMENT_CATEGORIES.map((c) => (
+            <option key={c} value={c}>{c.toLowerCase().replace(/_/g, ' ')}</option>
+          ))}
+        </select>{' '}
+        <button type="submit" disabled={!file || busy}>{busy ? 'Uploading…' : 'Upload'}</button>
+      </form>
+      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      {docs.map((d) => (
+        <div key={d.id} style={{ fontSize: 14, marginTop: 6 }}>
+          {d.originalFilename} · {d.category.toLowerCase().replace(/_/g, ' ')} ·{' '}
+          <span style={{ color: d.status === 'VERIFIED' ? '#2a6' : '#b60' }}>{d.status.toLowerCase().replace(/_/g, ' ')}</span>{' '}
+          <button onClick={() => download(d.id)}>Open</button>{' '}
+          {d.status !== 'VERIFIED' && <button onClick={() => remove(d.id)}>Delete</button>}
+        </div>
+      ))}
+      {docs.length === 0 && <p style={{ fontSize: 14, color: '#555' }}>No documents yet.</p>}
+    </div>
+  );
+}
 
 interface Connection {
   id: string;
@@ -239,11 +321,14 @@ export function PatientsPage({ clinicId }: { clinicId: string }) {
             </div>
           ))}
           {selectedPatientId && (
-            <AddTreatmentForm
-              clinicId={clinicId}
-              patientId={selectedPatientId}
-              onSaved={() => openPassport(selectedPatientId)}
-            />
+            <>
+              <AddTreatmentForm
+                clinicId={clinicId}
+                patientId={selectedPatientId}
+                onSaved={() => openPassport(selectedPatientId)}
+              />
+              <DocumentsSection clinicId={clinicId} patientId={selectedPatientId} />
+            </>
           )}
         </section>
       )}
