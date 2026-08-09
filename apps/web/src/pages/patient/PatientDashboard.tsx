@@ -22,7 +22,9 @@ export function PatientDashboard() {
   return (
     <main style={{ maxWidth: 720, margin: '5vh auto', fontFamily: 'system-ui' }}>
       <h1>Welcome, {me.user.fullName}</h1>
-      <p>Your Dental Passport dashboard. (Passport timeline arrives in Phase 2.)</p>
+      <p>
+        <Link to="/p/passport">My Dental Passport</Link> · <Link to="/p/clinics">My clinics</Link>
+      </p>
       {me.memberships.length > 0 && (
         <p>
           You are also a member of {me.memberships.map((m) => m.clinic.name).join(', ')} —{' '}

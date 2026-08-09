@@ -58,7 +58,10 @@ export function ClinicDashboard() {
     <main style={{ maxWidth: 720, margin: '5vh auto', fontFamily: 'system-ui' }}>
       <h1>{me.memberships[0].clinic.name}</h1>
       <p>Roles: {me.memberships[0].roles.join(', ')}</p>
-      <p>Clinic dashboard. (Patients, documents and AI review arrive in Phases 2–5.)</p>
+      <p>
+        <a href="/c/patients">Patients</a>
+      </p>
+      <p>(Documents and AI review arrive in Phases 4–5.)</p>
     </main>
   );
 }

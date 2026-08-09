@@ -5,8 +5,11 @@ import { AuditModule } from './audit/audit.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { ClinicsModule } from './clinics/clinics.module';
+import { ConnectionsModule } from './connections/connections.module';
+import { EmailModule } from './email/email.module';
 import { HealthController } from './health.controller';
 import { MembersModule } from './members/members.module';
+import { PassportsModule } from './passports/passports.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 
@@ -20,6 +23,9 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     ClinicsModule,
     MembersModule,
+    EmailModule,
+    ConnectionsModule,
+    PassportsModule,
   ],
   controllers: [HealthController],
   providers: [

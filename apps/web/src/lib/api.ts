@@ -12,7 +12,8 @@ export async function api<T>(
   const response = await fetch(`/api/v1${path}`, {
     method: options.method ?? 'GET',
     headers: {
-      'Content-Type': 'application/json',
+      // Content-Type only when there is a body: Fastify 400s on an empty JSON body.
+      ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.clinicId ? { 'X-Clinic-Id': options.clinicId } : {}),
     },
